@@ -1,0 +1,56 @@
+-- โค้ดควบคุมหน้าจอ UI (ใส่ใน LocalScript ใต้ FarmMenuGui)
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+
+local player = Players.LocalPlayer
+local farmRemote = ReplicatedStorage:WaitForChild("AutoFarmRemote")
+
+local mainFrame = script.Parent:WaitForChild("MainFrame")
+local toggleBtn = mainFrame:WaitForChild("ToggleFarmButton")
+local weaponBtn = mainFrame:WaitForChild("WeaponSelectButton")
+local speedInput = mainFrame:WaitForChild("SpeedInput") 
+
+-- ตั้งค่าเริ่มต้น
+local isFarming = false
+local weaponList = {"หมัด", "ดาบ", "ปืน", "ผลไม้ปีศาจ"}
+local currentWeaponIndex = 1
+local farmSpeedValue = 1000 -- ตั้งค่าเริ่มต้นเป็นความเร็วสูงสุด 1,000 ครั้ง/วินาที
+
+-- 1. ระบบพิมพ์ปรับตัวเลขความเร็ว (สูงสุด 1000)
+speedInput.FocusLost:Connect(function(enterPressed)
+	local textValue = tonumber(speedInput.Text)
+	if textValue then
+		-- บังคับตัวเลขให้อยู่ในช่วง 1 ถึง 1000 ครั้งต่อวินาที
+		farmSpeedValue = math.clamp(math.round(textValue), 1, 1000)
+		speedInput.Text = tostring(farmSpeedValue) .. " ครั้ง/วิ"
+		
+		-- อัปเดตความเร็วไปยังเซิร์ฟเวอร์
+		farmRemote:FireServer("UpdateSpeed", farmSpeedValue)
+	else
+		speedInput.Text = "ใส่เลข 1-1000!"
+	end
+end)
+
+-- 2. ปุ่มเปลี่ยนสลับประเภทอาวุธ
+weaponBtn.MouseButton1Click:Connect(function()
+	currentWeaponIndex = currentWeaponIndex + 1
+	if currentWeaponIndex > #weaponList then currentWeaponIndex = 1 end
+	
+	local selectedWeapon = weaponList[currentWeaponIndex]
+	weaponBtn.Text = "เลือกอาวุธ: " .. selectedWeapon
+	farmRemote:FireServer("ChangeWeapon", selectedWeapon)
+end)
+
+-- 3. ปุ่มเปิด-ปิด ระบบออโต้ฟาร์ม
+toggleBtn.MouseButton1Click:Connect(function()
+	isFarming = not isFarming
+	if isFarming then
+		toggleBtn.Text = "⚡ กำลังฟาร์มความเร็ว " .. tostring(farmSpeedValue) .. " Hits/Sec"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 85, 85)
+		farmRemote:FireServer("StartFarm", {Weapon = weaponList[currentWeaponIndex], SpeedValue = farmSpeedValue})
+	else
+		toggleBtn.Text = "🟢 เปิดระบบออโต้ฟาร์ม"
+		toggleBtn.BackgroundColor3 = Color3.fromRGB(85, 255, 85)
+		farmRemote:FireServer("StopFarm")
+	end
+end)
